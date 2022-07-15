@@ -49,7 +49,7 @@ func (k *ksvcSyncer) SyncDown(ctx *context.SyncContext, vObj client.Object) (ctr
 // spec changes, while you would want to sync up (physical -> virtual) status changes, as those
 // would get set only by the physical host cluster.
 func (k *ksvcSyncer) Sync(ctx *context.SyncContext, pObj client.Object, vObj client.Object) (ctrl.Result, error) {
-	klog.Infof("Sync called for %s : %s", pObj.GetName(), vObj.GetName())
+	klog.Infof("Sync called for Service %s : %s", pObj.GetName(), vObj.GetName())
 
 	pKsvc := pObj.(*ksvcv1.Service)
 	vKsvc := vObj.(*ksvcv1.Service)

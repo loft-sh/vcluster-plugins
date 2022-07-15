@@ -9,7 +9,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	ksvcv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -24,6 +23,9 @@ func New(ctx *context.RegisterContext) syncer.Syncer {
 type kconfigSyncer struct {
 	translator.NamespacedTranslator
 }
+
+var _ syncer.Initializer = &kconfigSyncer{}
+var _ syncer.UpSyncer = &kconfigSyncer{}
 
 func (k *kconfigSyncer) Init(ctx *context.RegisterContext) error {
 	return translate.EnsureCRDFromPhysicalCluster(ctx.Context,
@@ -69,7 +71,7 @@ func (k *kconfigSyncer) Sync(ctx *context.SyncContext, pObj, vObj client.Object)
 }
 
 func (k *kconfigSyncer) SyncUp(ctx *context.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	klog.Info("SyncUp called for ", pObj.GetName())
+	klog.Info("SyncUp called for configuration ", pObj.GetName())
 
 	return k.SyncUpCreate(ctx, pObj)
 }
@@ -78,25 +80,23 @@ func (k *kconfigSyncer) SyncUpCreate(ctx *context.SyncContext, pObj client.Objec
 	klog.Infof("SyncUpCreate called for %s:%s", pObj.GetName(), pObj.GetNamespace())
 	klog.Info("reverse name should be ", k.PhysicalToVirtual(pObj))
 
-	// k.TranslateMetadata()
-	pName := k.PhysicalToVirtual(pObj)
-	pConfig := pObj.(*ksvcv1.Configuration)
-	pConfig.ObjectMeta.Name = pName.Name
-	pConfig.ObjectMeta.Namespace = pName.Namespace
+	klog.Info("extracting from indexer")
 
-	// remove resourceVersion and uid
-	pConfig.ObjectMeta.ResourceVersion = ""
-	pConfig.ObjectMeta.UID = ""
-
-	// for i, ownerRef := range pConfig.OwnerReferences {
-	// 	pConfig.OwnerReferences[i].Name =
-	// }
-
-	pConfig.OwnerReferences = []metav1.OwnerReference{}
-
-	err := ctx.VirtualClient.Create(ctx.Context, pObj)
+	parent, err := k.findParentObject(ctx, pObj)
 	if err != nil {
-		k.NamespacedTranslator.EventRecorder().Eventf(pObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
+		klog.Errorf("no parent found for object %s/%s, %v", pObj.GetNamespace(), pObj.GetName(), err)
+		return ctrl.Result{}, err
+	}
+
+	newObj := pObj.DeepCopyObject().(client.Object)
+
+	newObj = k.ReverseTranslateMetadata(ctx, newObj, parent)
+	// klog.Info(newObj)
+
+	err = ctx.VirtualClient.Create(ctx.Context, newObj)
+	if err != nil {
+		klog.Errorf("error creating virtual config object %s/%s, %v", newObj.GetNamespace(), newObj.GetName(), err)
+		k.NamespacedTranslator.EventRecorder().Eventf(newObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
 		return ctrl.Result{}, err
 	}
 
