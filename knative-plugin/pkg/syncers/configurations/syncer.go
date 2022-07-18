@@ -24,6 +24,9 @@ type kconfigSyncer struct {
 	translator.NamespacedTranslator
 }
 
+var _ syncer.Initializer = &kconfigSyncer{}
+var _ syncer.UpSyncer = &kconfigSyncer{}
+
 func (k *kconfigSyncer) Init(ctx *context.RegisterContext) error {
 	return translate.EnsureCRDFromPhysicalCluster(ctx.Context,
 		ctx.PhysicalManager.GetConfig(),
@@ -68,7 +71,7 @@ func (k *kconfigSyncer) Sync(ctx *context.SyncContext, pObj, vObj client.Object)
 }
 
 func (k *kconfigSyncer) SyncUp(ctx *context.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	klog.Info("SyncUp called for ", pObj.GetName())
+	klog.Info("SyncUp called for configuration ", pObj.GetName())
 
 	return k.SyncUpCreate(ctx, pObj)
 }
@@ -88,7 +91,7 @@ func (k *kconfigSyncer) SyncUpCreate(ctx *context.SyncContext, pObj client.Objec
 	newObj := pObj.DeepCopyObject().(client.Object)
 
 	newObj = k.ReverseTranslateMetadata(ctx, newObj, parent)
-	klog.Info(newObj)
+	// klog.Info(newObj)
 
 	err = ctx.VirtualClient.Create(ctx.Context, newObj)
 	if err != nil {

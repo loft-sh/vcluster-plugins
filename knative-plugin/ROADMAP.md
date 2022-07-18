@@ -27,6 +27,14 @@ Add e2e tests for the following scenarios
 - [ ] Check if traffic split actually works at published endpoint
 - [x] check `containerConcurrency` sync
 - [x] check `timeoutSeconds` sync
-##### Route:
+
+##### Revisions:
+- [x] Basic sync up of host to virtual `revision` syncing
 
 ##### Configuration:
+- [x] Basic `configuration` sync up
+- [x] Configuration object status updates from host to virtual
+- [x] Mapping correct `kservice` as owner
+- [x] Reverse Translate expected name for virtual `Configurations`
+
+##### Route:
