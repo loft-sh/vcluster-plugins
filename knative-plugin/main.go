@@ -1,6 +1,7 @@
 package main
 
 import (
+	config "github.com/loft-sh/vcluster-knative-plugin/pkg/syncers/configurations"
 	"github.com/loft-sh/vcluster-knative-plugin/pkg/syncers/ksvc"
 	"github.com/loft-sh/vcluster-sdk/plugin"
 	"k8s.io/klog"
@@ -17,12 +18,14 @@ func main() {
 		klog.Fatalf("Error initializing plugin: %v", err)
 	}
 
-	syncer := ksvc.New(registerCtx)
-	syncer.Name()
-
-	err = plugin.Register(syncer)
+	err = plugin.Register(ksvc.New(registerCtx))
 	if err != nil {
 		klog.Fatalf("Error registering ksvc syncer: %v", err)
+	}
+
+	err = plugin.Register(config.New(registerCtx))
+	if err != nil {
+		klog.Fatalf("Error registering kconfig syncer: %v", err)
 	}
 
 	err = plugin.Start()
