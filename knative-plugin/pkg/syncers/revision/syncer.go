@@ -21,6 +21,7 @@ func New(ctx *context.RegisterContext) syncer.Syncer {
 	return &revisionSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "revision", &ksvcv1.Revision{}),
 		physicalClient:       ctx.PhysicalManager.GetClient(),
+		virtualClient:        ctx.VirtualManager.GetClient(),
 	}
 }
 
@@ -28,6 +29,7 @@ type revisionSyncer struct {
 	translator.NamespacedTranslator
 
 	physicalClient client.Client
+	virtualClient  client.Client
 }
 
 var _ syncer.Initializer = &revisionSyncer{}
@@ -81,17 +83,17 @@ func (r *revisionSyncer) SyncUp(ctx *context.SyncContext, pObj client.Object) (c
 	return r.SyncUpCreate(ctx, newObj)
 }
 
-func (r *revisionSyncer) SyncUpCreate(ctx *context.SyncContext, obj client.Object) (ctrl.Result, error) {
-	klog.Infof("SyncUpCreate called for %s:%s", obj.GetName(), obj.GetNamespace())
-	klog.Info("reverse name should be ", r.PhysicalToVirtual(obj))
+func (r *revisionSyncer) SyncUpCreate(ctx *context.SyncContext, pObj client.Object) (ctrl.Result, error) {
+	klog.Infof("SyncUpCreate called for %s:%s", pObj.GetName(), pObj.GetNamespace())
+	klog.Info("reverse name should be ", r.PhysicalToVirtual(pObj))
 
 	// TODO: find relevant parent of object
-	obj = r.ReverseTranslateMetadata(ctx, obj, nil)
+	pObj = r.ReverseTranslateMetadata(ctx, pObj, nil)
 
-	err := ctx.VirtualClient.Create(ctx.Context, obj)
+	err := ctx.VirtualClient.Create(ctx.Context, pObj)
 	if err != nil {
-		klog.Errorf("error creating virtual revision object %s/%s, %v", obj.GetNamespace(), obj.GetName(), err)
-		r.NamespacedTranslator.EventRecorder().Eventf(obj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
+		klog.Errorf("error creating virtual revision object %s/%s, %v", pObj.GetNamespace(), pObj.GetName(), err)
+		r.NamespacedTranslator.EventRecorder().Eventf(pObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
 		return ctrl.Result{}, err
 	}
 

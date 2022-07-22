@@ -11,6 +11,12 @@ import (
 func (r *revisionSyncer) ReverseTranslateMetadata(ctx *context.SyncContext, obj, parent client.Object) client.Object {
 	rev := obj.(*ksvcv1.Revision)
 
+	// reverse translate name and namespace
+	namespacedName := r.PhysicalToVirtual(obj)
+
+	rev.Name = namespacedName.Name
+	rev.Namespace = namespacedName.Namespace
+
 	// remove resourceVersion and uid
 	rev.ObjectMeta.ResourceVersion = ""
 	rev.ObjectMeta.UID = ""
