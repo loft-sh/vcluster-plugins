@@ -62,6 +62,21 @@ func (r *revisionSyncer) Sync(ctx *context.SyncContext, pObj, vObj client.Object
 	pRevision := pObj.(*ksvcv1.Revision)
 	vRevision := vObj.(*ksvcv1.Revision)
 
+	// since revisions are immutable and are created by config
+	// we are never interested in sync down events for revisions
+	if !equality.Semantic.DeepEqual(vRevision.Spec, pRevision.Spec) {
+		newRevision := vRevision.DeepCopy()
+		newRevision.Spec = pRevision.Spec
+		klog.Infof("Update virtual revision %s:%s, because spec is out of sync", vRevision.Namespace, vRevision.Name)
+		err := ctx.VirtualClient.Update(ctx.Context, newRevision)
+		if err != nil {
+			klog.Errorf("Error updating virtual kconfig spec for %s:%s, %v", vRevision.Namespace, vRevision.Name, err)
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	if !equality.Semantic.DeepEqual(vRevision.Status, pRevision.Status) {
 		newRevision := vRevision.DeepCopy()
 		newRevision.Status = pRevision.Status
