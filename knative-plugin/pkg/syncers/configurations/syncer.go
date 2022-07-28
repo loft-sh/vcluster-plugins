@@ -56,6 +56,21 @@ func (k *kconfigSyncer) Sync(ctx *context.SyncContext, pObj, vObj client.Object)
 	pConfig := pObj.(*ksvcv1.Configuration)
 	vConfig := vObj.(*ksvcv1.Configuration)
 
+	// always treat config values from ksvc as the source of truth
+	// hence only sync up the spec
+	if !equality.Semantic.DeepEqual(vConfig.Spec, pConfig.Spec) {
+		newConfig := vConfig.DeepCopy()
+		newConfig.Spec = pConfig.Spec
+		klog.Infof("Update virtual kconfig %s:%s, because spec is out of sync", vConfig.Namespace, vConfig.Name)
+		err := ctx.VirtualClient.Update(ctx.Context, newConfig)
+		if err != nil {
+			klog.Errorf("Error updating virtual kconfig spec for %s:%s, %v", vConfig.Namespace, vConfig.Name, err)
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	if !equality.Semantic.DeepEqual(vConfig.Status, pConfig.Status) {
 		newConfig := vConfig.DeepCopy()
 		newConfig.Status = pConfig.Status
