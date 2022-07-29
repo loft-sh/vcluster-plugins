@@ -38,7 +38,7 @@ func (k *kconfigSyncer) Init(ctx *context.RegisterContext) error {
 // exists, but has no corresponding physical cluster object yet. Typically, the physical cluster
 // object would get synced down from the virtual cluster to the host cluster in this scenario.
 func (k *kconfigSyncer) SyncDown(ctx *context.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	klog.Info("SyncDown called for ", vObj.GetName())
+	klog.Info("SyncDown called for config ", vObj.GetName())
 
 	klog.Infof("Deleting virtual Config Object %s because physical no longer exists", vObj.GetName())
 	err := ctx.VirtualClient.Delete(ctx.Context, vObj)

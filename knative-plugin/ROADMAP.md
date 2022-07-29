@@ -30,6 +30,8 @@ Add e2e tests for the following scenarios
 
 ##### Revisions:
 - [x] Basic sync up of host to virtual `revision` syncing
+- [x] Reverse translation of revision objects
+- [ ] Map owner references to correct config object
 
 ##### Configuration:
 - [x] Basic `configuration` sync up

@@ -4,6 +4,7 @@ import (
 	config "github.com/loft-sh/vcluster-knative-plugin/pkg/syncers/configurations"
 	"github.com/loft-sh/vcluster-knative-plugin/pkg/syncers/ksvc"
 	"github.com/loft-sh/vcluster-knative-plugin/pkg/syncers/revision"
+	"github.com/loft-sh/vcluster-knative-plugin/pkg/syncers/routes"
 	"github.com/loft-sh/vcluster-sdk/plugin"
 	"k8s.io/klog"
 	ksvcv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -32,6 +33,11 @@ func main() {
 	err = plugin.Register(revision.New(registerCtx))
 	if err != nil {
 		klog.Fatalf("Error registering krevision syncer: %v", err)
+	}
+
+	err = plugin.Register(routes.New(registerCtx))
+	if err != nil {
+		klog.Fatalf("Error registering route syncer: %v", err)
 	}
 
 	err = plugin.Start()

@@ -5,6 +5,7 @@ import (
 	"github.com/loft-sh/vcluster-sdk/syncer/context"
 	"github.com/loft-sh/vcluster-sdk/syncer/translator"
 	"github.com/loft-sh/vcluster-sdk/translate"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/klog"
 	ksvcv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,11 +32,51 @@ func (r *routeSyncer) Init(ctx *context.RegisterContext) error {
 }
 
 func (r *routeSyncer) SyncDown(ctx *context.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	panic("not implemented")
+	klog.Info("SyncDown called for route ", vObj.GetName())
+
+	klog.Infof("Deleting virtual route Object %s because physical no longer exists", vObj.GetName())
+	err := ctx.VirtualClient.Delete(ctx.Context, vObj)
+	if err != nil {
+		klog.Infof("Error deleting virtual route object: %v", err)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func (r *routeSyncer) Sync(ctx *context.SyncContext, pObj, vObj client.Object) (ctrl.Result, error) {
-	panic("not implemented")
+	klog.Infof("Sync called for Route %s : %s", pObj.GetName(), vObj.GetName())
+
+	pRoute := pObj.(*ksvcv1.Route)
+	vRoute := vObj.(*ksvcv1.Route)
+
+	// always treat config values from ksvc as the source of truth
+	// hence only sync up the spec
+	if !equality.Semantic.DeepEqual(vRoute.Spec, pRoute.Spec) {
+		newConfig := vRoute.DeepCopy()
+		newConfig.Spec = pRoute.Spec
+		klog.Infof("Update virtual route %s:%s, because spec is out of sync", vRoute.Namespace, vRoute.Name)
+		err := ctx.VirtualClient.Update(ctx.Context, newConfig)
+		if err != nil {
+			klog.Errorf("Error updating virtual route spec for %s:%s, %v", vRoute.Namespace, vRoute.Name, err)
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+	}
+
+	if !equality.Semantic.DeepEqual(vRoute.Status, pRoute.Status) {
+		newConfig := vRoute.DeepCopy()
+		newConfig.Status = pRoute.Status
+		klog.Infof("Update virtual route %s:%s, because status is out of sync", vRoute.Namespace, vRoute.Name)
+		err := ctx.VirtualClient.Status().Update(ctx.Context, newConfig)
+		if err != nil {
+			klog.Errorf("Error updating virtual route status for %s:%s, %v", vRoute.Namespace, vRoute.Name, err)
+			return ctrl.Result{}, err
+		}
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func (r *routeSyncer) SyncUp(ctx *context.SyncContext, pObj client.Object) (ctrl.Result, error) {
