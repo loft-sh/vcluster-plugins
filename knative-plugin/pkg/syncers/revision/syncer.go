@@ -116,6 +116,14 @@ func (r *revisionSyncer) SyncUpCreate(ctx *context.SyncContext, pObj client.Obje
 }
 
 func (r *revisionSyncer) IsManaged(obj client.Object) (bool, error) {
+	managed, err := r.NamespacedTranslator.IsManaged(obj)
+	if err == nil && managed {
+		return managed, err
+	}
+
+	// else try to check if this revision belongs to a configuration
+	// which is managed by a vcluster
+
 	metaAccessor, err := meta.Accessor(obj)
 	if err != nil {
 		return false, err
@@ -126,7 +134,8 @@ func (r *revisionSyncer) IsManaged(obj client.Object) (bool, error) {
 	for _, owner := range owners {
 		parent, err := r.physicalClient.Scheme().New(schema.FromAPIVersionAndKind(owner.APIVersion, owner.Kind))
 		if err != nil {
-			return false, err
+			klog.Errorf("error converting %s/%s to a runtime object %v", owner.Kind, owner.APIVersion)
+			continue
 		}
 
 		err = r.physicalClient.Get(plaincontext.Background(), client.ObjectKey{
@@ -134,12 +143,22 @@ func (r *revisionSyncer) IsManaged(obj client.Object) (bool, error) {
 			Namespace: metaAccessor.GetNamespace(),
 		}, parent.(client.Object))
 		if err != nil {
-			return false, err
+			klog.Infof("cannot get physical object %s %s/%s: %v",
+				parent.GetObjectKind().GroupVersionKind().Kind,
+				owner.Name,
+				metaAccessor.GetNamespace(),
+				err)
+			continue
 		}
 
 		parentMetaAccessor, err := meta.Accessor(parent)
 		if err != nil {
-			return false, err
+			klog.Infof("error checking parent meta accessor object %s %s/%s: %v",
+				parent.GetObjectKind().GroupVersionKind().Kind,
+				owner.Name,
+				metaAccessor.GetNamespace(),
+				err)
+			continue
 		}
 
 		if v, ok := parentMetaAccessor.GetLabels()[translate.MarkerLabel]; ok {
