@@ -40,7 +40,7 @@ func (r *routeSyncer) findParentObject(ctx *context.SyncContext, obj client.Obje
 func (r *routeSyncer) ReverseTranslateMetadata(ctx *context.SyncContext, obj, parent client.Object) client.Object {
 	pName := r.PhysicalToVirtual(obj)
 
-	newConfig := obj.(*ksvcv1.Configuration)
+	newConfig := obj.(*ksvcv1.Route)
 	newConfig.ObjectMeta.Name = pName.Name
 	newConfig.ObjectMeta.Namespace = pName.Namespace
 
