@@ -38,5 +38,8 @@ Add e2e tests for the following scenarios
 - [x] Configuration object status updates from host to virtual
 - [x] Mapping correct `kservice` as owner
 - [x] Reverse Translate expected name for virtual `Configurations`
+- [x] Link Virtual `Configurations` with the correct owner references to the virtual `ksvc` objects
+- [x] Delete `Configuration` objects when physical objects don't exist anymore
+- [x] Implement proper reverse name translation of `Configuration` objects to match with the correct virtual `ksvc` objects
 
 ##### Route:
