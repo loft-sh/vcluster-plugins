@@ -264,13 +264,6 @@ var _ = ginkgo.Describe("Ksvc is synced down and applied as expected", func() {
 		framework.ExpectNoError(err)
 
 		err = wait.Poll(time.Millisecond*500, framework.PollTimeout, func() (bool, error) {
-			labelSelector := metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"serving.knative.dev/service": translate.PhysicalName(KnativeServiceName, ns),
-				},
-			}
-
-			fmt.Println("labelSelector:", labelSelector.String())
 			revisions, err := pServingClient.Revisions(
 				framework.DefaultFramework.VclusterNamespace).
 				List(f.Context, metav1.ListOptions{

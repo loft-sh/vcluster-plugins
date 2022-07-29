@@ -109,6 +109,24 @@ var _ = ginkgo.Describe("Test config is synced down and applied as expected", fu
 		})
 	})
 
+	ginkgo.It("Test vConfig created as a result of upsync", func() {
+		err := wait.PollImmediate(time.Second, framework.PollTimeout, func() (bool, error) {
+			// configuration name always matches the kservice name
+			_, err := vServingClient.Configurations(ns).Get(f.Context, KnativeServiceName, metav1.GetOptions{})
+			if err != nil {
+				if kerrors.IsNotFound(err) {
+					return false, nil
+				}
+
+				return false, err
+			}
+
+			return true, nil
+		})
+
+		framework.ExpectNoError(err)
+	})
+
 	// this should always be the last spec
 	ginkgo.It("Destroy namespace", func() {
 		err := f.DeleteTestNamespace(ns, false)
