@@ -174,6 +174,17 @@ func (r *syncerController) Register(ctx *synccontext.RegisterContext) error {
 			return err
 		}
 	}
+
+	mapperConfig, ok := r.syncer.(ReverseMapper)
+	if ok {
+		for _, watcher := range mapperConfig.GetWatchers() {
+			controller, err = watcher(ctx, controller)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return controller.Complete(r)
 }
 

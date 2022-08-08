@@ -10,11 +10,8 @@ import (
 	"github.com/loft-sh/vcluster-sdk/syncer/context"
 	"github.com/loft-sh/vcluster-sdk/translate"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	ksvcv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -35,15 +32,15 @@ const (
 // 	return r.NamespacedTranslator.RegisterIndices(ctx)
 // }
 
-func (r *revisionSyncer) ModifyController(ctx *context.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
-	builder = builder.Watches(&source.Kind{
-		Type: &ksvcv1.Configuration{},
-	}, handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
-		return mapconfigs(ctx, obj)
-	}))
+// func (r *revisionSyncer) ModifyController(ctx *context.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
+// 	builder = builder.Watches(&source.Kind{
+// 		Type: &ksvcv1.Configuration{},
+// 	}, handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+// 		return mapconfigs(ctx, obj)
+// 	}))
 
-	return builder, nil
-}
+// 	return builder, nil
+// }
 
 func mapconfigs(ctx *context.RegisterContext, obj client.Object) []reconcile.Request {
 

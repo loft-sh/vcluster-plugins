@@ -131,14 +131,17 @@ type ControllerModifier interface {
 	ModifyController(ctx *context.RegisterContext, builder *builder.Builder) (*builder.Builder, error)
 }
 
+type Watchers func(ctx *context.RegisterContext, builder *builder.Builder) (*builder.Builder, error)
+
 // Experimental!!!
 type ReverseMapper interface {
 	GetReverseMapper() MapperConfig
+	GetWatchers() []Watchers
 }
 
 type MapperConfig struct {
-	ExtraIndices IndexFunc
-	// ControllerModifiers []ControllerModifier
+	ExtraIndices  IndexFunc
+	ExtraWatchers []Watchers
 }
 
 type IndexFunc func(ctx *context.RegisterContext) error

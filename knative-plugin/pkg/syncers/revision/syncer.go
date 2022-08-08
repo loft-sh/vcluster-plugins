@@ -15,6 +15,7 @@ import (
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	ksvcv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
@@ -68,9 +69,16 @@ func (r *revisionSyncer) Init(ctx *context.RegisterContext) error {
 
 	// call reverseMapper
 	fmt.Println("adding reverse mapper")
-	r.AddReverseMapper(ctx, &ksvcv1.Configuration{}, IndexByConfiguration, func(rawObj client.Object) []string {
-		return filterRevisionFromConfiguration(ctx.TargetNamespace, rawObj)
-	})
+	r.AddReverseMapper(ctx,
+		&ksvcv1.Configuration{},
+		IndexByConfiguration,
+		func(rawObj client.Object) []string {
+			return filterRevisionFromConfiguration(ctx.TargetNamespace, rawObj)
+		},
+		func(obj client.Object) []reconcile.Request {
+			return mapconfigs(ctx, obj)
+		},
+	)
 
 	return translate.EnsureCRDFromPhysicalCluster(ctx.Context,
 		ctx.PhysicalManager.GetConfig(),
