@@ -6,6 +6,7 @@ install-knative-serving:
 	# installing kourier networking layer
 	kubectl apply -f https://github.com/knative/net-kourier/releases/download/knative-v1.6.0/kourier.yaml
 	# configure serving to use kourier by default
+	sleep 10
 	kubectl patch configmap/config-network \
 		--namespace knative-serving \
 		--type merge \

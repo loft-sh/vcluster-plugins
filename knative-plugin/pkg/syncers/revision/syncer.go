@@ -2,7 +2,9 @@ package revision
 
 import (
 	plaincontext "context"
+	"fmt"
 
+	"github.com/gin-gonic/gin"
 	"github.com/loft-sh/vcluster-sdk/syncer"
 	"github.com/loft-sh/vcluster-sdk/syncer/context"
 	"github.com/loft-sh/vcluster-sdk/syncer/translator"
@@ -17,25 +19,59 @@ import (
 	ksvcv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
+const (
+	REGISTER_CONTEXT = "REGISTER_CONTEXT"
+)
+
 func New(ctx *context.RegisterContext) syncer.Syncer {
 	return &revisionSyncer{
 		NamespacedTranslator: translator.NewNamespacedTranslator(ctx, "revision", &ksvcv1.Revision{}),
 		physicalClient:       ctx.PhysicalManager.GetClient(),
 		virtualClient:        ctx.VirtualManager.GetClient(),
+		physicalNamespace:    ctx.TargetNamespace,
+
+		mapperConfig: syncer.MapperConfig{},
+		// reverseMapper:        make(ReverseMapper),
+
 	}
 }
 
 type revisionSyncer struct {
 	translator.NamespacedTranslator
 
-	physicalClient client.Client
-	virtualClient  client.Client
+	physicalClient    client.Client
+	virtualClient     client.Client
+	physicalNamespace string
+
+	mapperConfig syncer.MapperConfig
+	// reverseMapper ReverseMapper
+
+	server *gin.Engine
 }
 
 var _ syncer.Initializer = &revisionSyncer{}
 var _ syncer.UpSyncer = &revisionSyncer{}
 
+func injectRegisterContext(ctx *context.RegisterContext) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set(REGISTER_CONTEXT, ctx)
+		c.Next()
+	}
+}
+
 func (r *revisionSyncer) Init(ctx *context.RegisterContext) error {
+	r.server = gin.Default()
+	r.server.Use(injectRegisterContext(ctx))
+	r.server.GET("/revision/indexer", r.revisionIndexer)
+
+	go r.server.Run()
+
+	// call reverseMapper
+	fmt.Println("adding reverse mapper")
+	r.AddReverseMapper(ctx, &ksvcv1.Configuration{}, IndexByConfiguration, func(rawObj client.Object) []string {
+		return filterRevisionFromConfiguration(ctx.TargetNamespace, rawObj)
+	})
+
 	return translate.EnsureCRDFromPhysicalCluster(ctx.Context,
 		ctx.PhysicalManager.GetConfig(),
 		ctx.VirtualManager.GetConfig(),

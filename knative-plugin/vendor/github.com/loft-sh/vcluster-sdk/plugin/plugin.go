@@ -4,6 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"os"
+	"sync"
+	"time"
+
 	"github.com/loft-sh/vcluster-sdk/clienthelper"
 	"github.com/loft-sh/vcluster-sdk/hook"
 	"github.com/loft-sh/vcluster-sdk/log"
@@ -15,14 +20,10 @@ import (
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
-	"net"
-	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
-	"sync"
-	"time"
 )
 
 const (
@@ -482,6 +483,14 @@ func (m *manager) start() error {
 		}
 	}
 	for _, s := range m.syncers {
+		// Experimental!!
+		// check if syncer.MapperConfig
+		syncerReverseMapper, ok := s.(syncer.ReverseMapper)
+		if ok {
+			reverseMapperConfig := syncerReverseMapper.GetReverseMapper()
+			reverseMapperConfig.ExtraIndices(m.context)
+		}
+
 		indexRegisterer, ok := s.(syncer.IndicesRegisterer)
 		if ok {
 			err := indexRegisterer.RegisterIndices(m.context)

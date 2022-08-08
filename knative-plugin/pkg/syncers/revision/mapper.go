@@ -8,6 +8,7 @@ import (
 
 	"github.com/loft-sh/vcluster-sdk/clienthelper"
 	"github.com/loft-sh/vcluster-sdk/syncer/context"
+	"github.com/loft-sh/vcluster-sdk/translate"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,34 +23,38 @@ const (
 	IndexByConfiguration = "indexbyconfiguration"
 )
 
-func (r *revisionSyncer) RegisterIndices(ctx *context.RegisterContext) error {
-	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &ksvcv1.Configuration{}, IndexByConfiguration, func(rawObj client.Object) []string {
-		return revisionNamesFromConfiguration(rawObj.(*ksvcv1.Configuration))
-	})
+// func (r *revisionSyncer) RegisterIndices(ctx *context.RegisterContext) error {
+// 	err := ctx.VirtualManager.GetFieldIndexer().IndexField(ctx.Context, &ksvcv1.Configuration{}, IndexByConfiguration, func(rawObj client.Object) []string {
+// 		return revisionNamesFromConfiguration(ctx.TargetNamespace, rawObj.(*ksvcv1.Configuration))
+// 	})
 
-	if err != nil {
-		return err
-	}
+// 	if err != nil {
+// 		return err
+// 	}
 
-	return r.NamespacedTranslator.RegisterIndices(ctx)
-}
+// 	return r.NamespacedTranslator.RegisterIndices(ctx)
+// }
 
 func (r *revisionSyncer) ModifyController(ctx *context.RegisterContext, builder *builder.Builder) (*builder.Builder, error) {
 	builder = builder.Watches(&source.Kind{
 		Type: &ksvcv1.Configuration{},
-	}, handler.EnqueueRequestsFromMapFunc(mapConfigs))
+	}, handler.EnqueueRequestsFromMapFunc(func(obj client.Object) []reconcile.Request {
+		return mapconfigs(ctx, obj)
+	}))
 
 	return builder, nil
 }
 
-func mapConfigs(obj client.Object) []reconcile.Request {
+func mapconfigs(ctx *context.RegisterContext, obj client.Object) []reconcile.Request {
+
+	// map configs
 	config, ok := obj.(*ksvcv1.Configuration)
 	if !ok {
 		return nil
 	}
 
 	requests := []reconcile.Request{}
-	names := revisionNamesFromConfiguration(config)
+	names := filterRevisionFromConfiguration(ctx.TargetNamespace, config)
 	for _, name := range names {
 		if name != "" {
 			splitted := strings.Split(name, "/")
@@ -67,35 +72,16 @@ func mapConfigs(obj client.Object) []reconcile.Request {
 	return requests
 }
 
-func revisionNamesFromConfiguration(config *ksvcv1.Configuration) []string {
+func filterRevisionFromConfiguration(pNamespace string, obj client.Object) []string {
 	revisions := []string{}
-
-	vNamespace := config.GetNamespace()
-
-	re := regexp.MustCompile(fmt.Sprintf(`(?m)(?P<name>\w+)-x-%s-x-(?P<pNs>\w+)-(?P<rNo>\d+)`, vNamespace))
+	config := obj.(*ksvcv1.Configuration)
 
 	if config.Status.LatestCreatedRevisionName != "" {
-		matches := re.FindStringSubmatch(config.Status.LatestCreatedRevisionName)
-		pNamespace := matches[re.SubexpIndex("pNs")]
-		name := matches[re.SubexpIndex("name")]
-		revNo := matches[re.SubexpIndex("rNo")]
-
 		revisions = append(revisions, pNamespace+"/"+config.Status.LatestCreatedRevisionName)
-		// revisions = append(revisions, vNamespace+"/"+config.Status.LatestCreatedRevisionName)
-
-		revisions = append(revisions, fmt.Sprintf("%s/%s-%s", vNamespace, name, revNo))
-		// revisions = append(revisions, pNamespace+"/"+config.Status.LatestReadyRevisionName)
 	}
 
 	if config.Status.LatestReadyRevisionName != "" {
-		matches := re.FindStringSubmatch(config.Status.LatestReadyRevisionName)
-		pNamespace := matches[re.SubexpIndex("pNs")]
-		name := matches[re.SubexpIndex("name")]
-		revNo := matches[re.SubexpIndex("rNo")]
-
 		revisions = append(revisions, pNamespace+"/"+config.Status.LatestReadyRevisionName)
-		// revisions = append(revisions, vNamespace+"/"+config.Status.LatestReadyRevisionName)
-		revisions = append(revisions, fmt.Sprintf("%s/%s-%s", vNamespace, name, revNo))
 	}
 
 	return revisions
@@ -118,25 +104,17 @@ func (r *revisionSyncer) PhysicalToVirtual(pObj client.Object) types.NamespacedN
 func (r *revisionSyncer) nameByConfiguration(pObj client.Object) types.NamespacedName {
 	vConfig := &ksvcv1.Configuration{}
 
-	// configList := ksvcv1.ConfigurationList{}
-	// listErr := r.virtualClient.List(basecontext.TODO(), &configList)
-	// if listErr != nil {
-	// 	fmt.Println(listErr)
-	// }
-
 	err := clienthelper.GetByIndex(basecontext.TODO(), r.virtualClient, vConfig, IndexByConfiguration, pObj.GetNamespace()+"/"+pObj.GetName())
 	if err == nil && vConfig.Name != "" {
 		if vConfig.Status.LatestCreatedRevisionName == pObj.GetName() ||
 			vConfig.Status.LatestReadyRevisionName == pObj.GetName() {
 
 			vNamespace := vConfig.Namespace
-			re := regexp.MustCompile(fmt.Sprintf(`(?m)(?P<name>\w+)-x-%s-x-(?P<pNs>\w+)-(?P<rNo>\d+)`, vNamespace))
-			matches := re.FindStringSubmatch(pObj.GetName())
-			revName := matches[re.SubexpIndex("name")]
-			revNo := matches[re.SubexpIndex("rNo")]
+			pConfigName := translate.PhysicalName(vConfig.Name, vConfig.Namespace)
+			revSuffix := strings.TrimPrefix(pObj.GetName(), pConfigName)
 
 			return types.NamespacedName{
-				Name:      fmt.Sprintf("%s-%s", revName, revNo),
+				Name:      vConfig.Name + revSuffix,
 				Namespace: vNamespace,
 			}
 		}
@@ -153,6 +131,10 @@ func (r *revisionSyncer) VirtualToPhysical(req types.NamespacedName, vObj client
 	// example: default/hello-00001
 	// should translate to vcluster/hello-x-default-x-vcluster-00001
 
+	fmt.Println("********", req, "*********")
+	fmt.Println(vObj)
+	fmt.Println(strings.Repeat("*", 100))
+
 	re := regexp.MustCompile(`(?m)(?P<revName>[\w|-]+)-(?P<revNo>[\d]+)`)
 	matches := re.FindStringSubmatch(req.Name)
 
@@ -166,5 +148,7 @@ func (r *revisionSyncer) VirtualToPhysical(req types.NamespacedName, vObj client
 
 	physicalName.Name += "-" + revNo
 
+	fmt.Println("physical name:", physicalName)
+	fmt.Println(strings.Repeat("=", 100))
 	return physicalName
 }
