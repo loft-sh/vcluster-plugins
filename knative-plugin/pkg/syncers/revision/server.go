@@ -12,13 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func init() {
-	r := gin.Default()
-	r.GET("/revision/indexer", func(c *gin.Context) {
-
-	})
-}
-
 func (r *revisionSyncer) revisionIndexer(c *gin.Context) {
 	registerContext, ok := c.Keys[REGISTER_CONTEXT].(*context.RegisterContext)
 	if !ok {
@@ -40,8 +33,10 @@ func (r *revisionSyncer) revisionIndexer(c *gin.Context) {
 		return
 	}
 
+	value := c.DefaultQuery("value", "vcluster/hello-x-default-x-vcluster-00001")
+
 	cl := &ksvcv1.ConfigurationList{}
-	matchFields := client.MatchingFields{"indexbyconfiguration": "vcluster/hello-x-default-x-vcluster-00001"}
+	matchFields := client.MatchingFields{"indexbyconfiguration": value}
 	err = registerContext.VirtualManager.GetClient().List(c.Request.Context(), cl, matchFields)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

@@ -4,6 +4,8 @@ import (
 	plaincontext "context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/gin-gonic/gin"
 	"github.com/loft-sh/vcluster-sdk/syncer"
 	"github.com/loft-sh/vcluster-sdk/syncer/context"
@@ -34,6 +36,7 @@ func New(ctx *context.RegisterContext) syncer.Syncer {
 		mapperConfig: syncer.MapperConfig{},
 		// reverseMapper:        make(ReverseMapper),
 
+		nameCache: make(map[types.NamespacedName]types.NamespacedName),
 	}
 }
 
@@ -46,8 +49,8 @@ type revisionSyncer struct {
 
 	mapperConfig syncer.MapperConfig
 	// reverseMapper ReverseMapper
-
-	server *gin.Engine
+	nameCache map[types.NamespacedName]types.NamespacedName
+	server    *gin.Engine
 }
 
 var _ syncer.Initializer = &revisionSyncer{}
@@ -61,6 +64,8 @@ func injectRegisterContext(ctx *context.RegisterContext) gin.HandlerFunc {
 }
 
 func (r *revisionSyncer) Init(ctx *context.RegisterContext) error {
+	// experimental
+	// for runtime querying of the indexed keys through curl
 	r.server = gin.Default()
 	r.server.Use(injectRegisterContext(ctx))
 	r.server.GET("/revision/indexer", r.revisionIndexer)
