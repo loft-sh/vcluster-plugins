@@ -15,6 +15,7 @@ import (
 	"github.com/loft-sh/vcluster-sdk/plugin/remote"
 	"github.com/loft-sh/vcluster-sdk/syncer"
 	synccontext "github.com/loft-sh/vcluster-sdk/syncer/context"
+	"github.com/loft-sh/vcluster-sdk/syncer/mapper"
 	"github.com/loft-sh/vcluster-sdk/translate"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -483,12 +484,13 @@ func (m *manager) start() error {
 		}
 	}
 	for _, s := range m.syncers {
-		// Experimental!!
-		// check if syncer.MapperConfig
-		syncerReverseMapper, ok := s.(syncer.ReverseMapper)
+		// check if mapper.Reverse
+		reverseMapper, ok := s.(mapper.Reverse)
 		if ok {
-			reverseMapperConfig := syncerReverseMapper.GetReverseMapper()
-			reverseMapperConfig.ExtraIndices(m.context)
+			reverseMapperConfig := reverseMapper.GetReverseMapper()
+			for _, index := range reverseMapperConfig.ExtraIndices {
+				index(m.context)
+			}
 		}
 
 		indexRegisterer, ok := s.(syncer.IndicesRegisterer)

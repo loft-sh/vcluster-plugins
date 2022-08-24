@@ -2,13 +2,10 @@ package revision
 
 import (
 	plaincontext "context"
-	"fmt"
 
-	"k8s.io/apimachinery/pkg/types"
-
-	"github.com/gin-gonic/gin"
 	"github.com/loft-sh/vcluster-sdk/syncer"
 	"github.com/loft-sh/vcluster-sdk/syncer/context"
+	"github.com/loft-sh/vcluster-sdk/syncer/mapper"
 	"github.com/loft-sh/vcluster-sdk/syncer/translator"
 	"github.com/loft-sh/vcluster-sdk/translate"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -33,10 +30,7 @@ func New(ctx *context.RegisterContext) syncer.Syncer {
 		virtualClient:        ctx.VirtualManager.GetClient(),
 		physicalNamespace:    ctx.TargetNamespace,
 
-		mapperConfig: syncer.MapperConfig{},
-		// reverseMapper:        make(ReverseMapper),
-
-		nameCache: make(map[types.NamespacedName]types.NamespacedName),
+		// nameCache: make(map[types.NamespacedName]types.NamespacedName),
 	}
 }
 
@@ -46,34 +40,14 @@ type revisionSyncer struct {
 	physicalClient    client.Client
 	virtualClient     client.Client
 	physicalNamespace string
-
-	mapperConfig syncer.MapperConfig
-	// reverseMapper ReverseMapper
-	nameCache map[types.NamespacedName]types.NamespacedName
-	server    *gin.Engine
 }
 
 var _ syncer.Initializer = &revisionSyncer{}
 var _ syncer.UpSyncer = &revisionSyncer{}
-
-func injectRegisterContext(ctx *context.RegisterContext) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set(REGISTER_CONTEXT, ctx)
-		c.Next()
-	}
-}
+var _ mapper.Reverse = &revisionSyncer{}
 
 func (r *revisionSyncer) Init(ctx *context.RegisterContext) error {
-	// experimental
-	// for runtime querying of the indexed keys through curl
-	r.server = gin.Default()
-	r.server.Use(injectRegisterContext(ctx))
-	r.server.GET("/revision/indexer", r.revisionIndexer)
-
-	go r.server.Run()
-
-	// call reverseMapper
-	fmt.Println("adding reverse mapper")
+	// add reverse mappings
 	r.AddReverseMapper(ctx,
 		&ksvcv1.Configuration{},
 		IndexByConfiguration,
@@ -93,12 +67,12 @@ func (r *revisionSyncer) Init(ctx *context.RegisterContext) error {
 }
 
 func (r *revisionSyncer) SyncDown(ctx *context.SyncContext, vObj client.Object) (ctrl.Result, error) {
-	klog.Infof("SyncDown called for %s:%s", vObj.GetObjectKind().GroupVersionKind().Kind, vObj.GetName())
+	ctx.Log.Debugf("SyncDown called for %s:%s", vObj.GetObjectKind().GroupVersionKind().Kind, vObj.GetName())
 
-	klog.Infof("Deleting virtual Revision Object %s because physical no longer exists", vObj.GetName())
+	ctx.Log.Debugf("Deleting virtual Revision Object %s because physical no longer exists", vObj.GetName())
 	err := ctx.VirtualClient.Delete(ctx.Context, vObj)
 	if err != nil {
-		klog.Infof("Error deleting virtual revision object: %v", err)
+		ctx.Log.Errorf("Error deleting virtual revision object: %v", err)
 		return ctrl.Result{}, err
 	}
 
@@ -106,7 +80,7 @@ func (r *revisionSyncer) SyncDown(ctx *context.SyncContext, vObj client.Object) 
 }
 
 func (r *revisionSyncer) Sync(ctx *context.SyncContext, pObj, vObj client.Object) (ctrl.Result, error) {
-	klog.Infof("Sync called for Revision %s : %s", pObj.GetName(), vObj.GetName())
+	ctx.Log.Debugf("Sync called for Revision %s : %s", pObj.GetName(), vObj.GetName())
 
 	pRevision := pObj.(*ksvcv1.Revision)
 	vRevision := vObj.(*ksvcv1.Revision)
@@ -116,10 +90,10 @@ func (r *revisionSyncer) Sync(ctx *context.SyncContext, pObj, vObj client.Object
 	if !equality.Semantic.DeepEqual(vRevision.Spec, pRevision.Spec) {
 		newRevision := vRevision.DeepCopy()
 		newRevision.Spec = pRevision.Spec
-		klog.Infof("Update virtual revision %s:%s, because spec is out of sync", vRevision.Namespace, vRevision.Name)
+		ctx.Log.Debugf("Update virtual revision %s:%s, because spec is out of sync", vRevision.Namespace, vRevision.Name)
 		err := ctx.VirtualClient.Update(ctx.Context, newRevision)
 		if err != nil {
-			klog.Errorf("Error updating virtual kconfig spec for %s:%s, %v", vRevision.Namespace, vRevision.Name, err)
+			ctx.Log.Errorf("Error updating virtual kconfig spec for %s:%s, %v", vRevision.Namespace, vRevision.Name, err)
 			return ctrl.Result{}, err
 		}
 
@@ -129,10 +103,10 @@ func (r *revisionSyncer) Sync(ctx *context.SyncContext, pObj, vObj client.Object
 	if !equality.Semantic.DeepEqual(vRevision.Status, pRevision.Status) {
 		newRevision := vRevision.DeepCopy()
 		newRevision.Status = pRevision.Status
-		klog.Infof("Update virtual revision %s:%s, because status is out of sync", vRevision.Namespace, vRevision.Name)
+		ctx.Log.Errorf("Update virtual revision %s:%s, because status is out of sync", vRevision.Namespace, vRevision.Name)
 		err := ctx.VirtualClient.Status().Update(ctx.Context, newRevision)
 		if err != nil {
-			klog.Errorf("Error updating virtual kconfig status for %s:%s, %v", vRevision.Namespace, vRevision.Name, err)
+			ctx.Log.Errorf("Error updating virtual kconfig status for %s:%s, %v", vRevision.Namespace, vRevision.Name, err)
 			return ctrl.Result{}, err
 		}
 	}
@@ -141,22 +115,22 @@ func (r *revisionSyncer) Sync(ctx *context.SyncContext, pObj, vObj client.Object
 }
 
 func (r *revisionSyncer) SyncUp(ctx *context.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	klog.Info("SyncUp called for revision ", pObj.GetName())
+	ctx.Log.Debugf("SyncUp called for revision ", pObj.GetName())
 	newObj := pObj.DeepCopyObject().(client.Object)
 
 	return r.SyncUpCreate(ctx, newObj)
 }
 
 func (r *revisionSyncer) SyncUpCreate(ctx *context.SyncContext, pObj client.Object) (ctrl.Result, error) {
-	klog.Infof("SyncUpCreate called for %s:%s", pObj.GetName(), pObj.GetNamespace())
-	klog.Info("reverse name should be ", r.PhysicalToVirtual(pObj))
+	ctx.Log.Debugf("SyncUpCreate called for %s:%s", pObj.GetName(), pObj.GetNamespace())
+	ctx.Log.Debugf("reverse name should be ", r.PhysicalToVirtual(pObj))
 
 	// TODO: find relevant parent of object
 	pObj = r.ReverseTranslateMetadata(ctx, pObj, nil)
 
 	err := ctx.VirtualClient.Create(ctx.Context, pObj)
 	if err != nil {
-		klog.Errorf("error creating virtual revision object %s/%s, %v", pObj.GetNamespace(), pObj.GetName(), err)
+		ctx.Log.Errorf("error creating virtual revision object %s/%s, %v", pObj.GetNamespace(), pObj.GetName(), err)
 		r.NamespacedTranslator.EventRecorder().Eventf(pObj, "Warning", "SyncError", "Error syncing to virtual cluster: %v", err)
 		return ctrl.Result{}, err
 	}

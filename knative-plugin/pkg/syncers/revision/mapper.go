@@ -59,10 +59,6 @@ func filterRevisionFromConfiguration(pNamespace string, obj client.Object) []str
 		revisions = append(revisions, pNamespace+"/"+config.Status.LatestReadyRevisionName)
 	}
 
-	// klog.Infof("create revision for config: %s", config.Name)
-	// klog.Infof("%v", revisions)
-	// klog.Infof("--------------------------------------------")
-
 	return revisions
 }
 
@@ -118,10 +114,10 @@ func (r *revisionSyncer) nameByConfiguration(pObj client.Object) types.Namespace
 			}
 
 			// register this in the namecache
-			r.nameCache[key] = types.NamespacedName{
+			r.AddToNameCache(key, types.NamespacedName{
 				Namespace: pObj.GetNamespace(),
 				Name:      pObj.GetName(),
-			}
+			})
 
 			return key
 		}
@@ -139,5 +135,5 @@ func (r *revisionSyncer) VirtualToPhysical(req types.NamespacedName, vObj client
 	// should translate to vcluster/hello-x-default-x-vcluster-00001
 
 	// lookup in the nameCache
-	return r.nameCache[req]
+	return r.FindInNameCache(req)
 }
