@@ -14,6 +14,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 
@@ -21,18 +22,6 @@ import (
 	servingclient "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-)
-
-const (
-	KnativeServiceResourceKind = "Service"
-
-	KnativeServiceName = "hello-ksvc"
-
-	KnativeHelloV1Image = "gcr.io/google-samples/hello-app:1.0"
-	KnativeHelloV2Image = "gcr.io/google-samples/hello-app:2.0"
-
-	ServiceVersionV1 = "Version: 1.0.0"
-	ServiceBody      = "Hello, world!"
 )
 
 var _ = ginkgo.Describe("Ksvc is synced down and applied as expected", func() {
@@ -277,7 +266,11 @@ var _ = ginkgo.Describe("Ksvc is synced down and applied as expected", func() {
 		err = wait.Poll(time.Millisecond*500, framework.PollTimeout, func() (bool, error) {
 			revisions, err := pServingClient.Revisions(
 				framework.DefaultFramework.VclusterNamespace).
-				List(f.Context, metav1.ListOptions{})
+				List(f.Context, metav1.ListOptions{
+					LabelSelector: labels.SelectorFromSet(map[string]string{
+						"serving.knative.dev/service": translate.PhysicalName(KnativeServiceName, ns),
+					}).String(),
+				})
 			if err != nil {
 				klog.Errorf("error getting physical revisions: %v", err)
 				return false, nil

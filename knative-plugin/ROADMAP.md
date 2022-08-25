@@ -28,14 +28,19 @@ Add e2e tests for the following scenarios
 - [x] check `containerConcurrency` sync
 - [x] check `timeoutSeconds` sync
 
+##### Revisions:
+- [x] Basic sync up of host to virtual `revision` syncing
+- [x] Reverse translation of revision objects
+- [ ] Map owner references to correct config object
+
 ##### Configuration:
 Implement following scenarios:
 - [x] SyncUp of `Configuration` objects as a result of physical ksvc CRs
 - [x] Update status of `Configuration` objects as and when new `revisions` are created etc.
 - [x] Delete `Configuration` objects when physical objects don't exist anymore
+- [x] Mapping correct `kservice` as owner
+- [x] Reverse Translate expected name for virtual `Configurations`
 - [ ] Implement proper reverse name translation of `Configuration` objects to match with the correct virtual `ksvc` objects
 - [ ] Link Virtual `Configurations` with the correct owner references to the virtual `ksvc` objects
-
-##### Revisions:
 
 ##### Route:

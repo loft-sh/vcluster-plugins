@@ -8,7 +8,7 @@ plugin:
       role:
         extraRules:
           - apiGroups: ["serving.knative.dev"]
-            resources: ["services"]
+            resources: ["services", "configurations", "revisions", "routes"]
             verbs: ["create", "delete", "patch", "update", "get", "list", "watch"]
       clusterRole:
         extraRules:
