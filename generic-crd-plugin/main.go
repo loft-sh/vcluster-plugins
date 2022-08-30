@@ -8,7 +8,6 @@ import (
 	"github.com/loft-sh/vcluster-generic-crd-plugin/pkg/syncer"
 	"github.com/loft-sh/vcluster-sdk/plugin"
 	"github.com/loft-sh/vcluster-sdk/translate"
-	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog"
 )
@@ -28,17 +27,16 @@ func main() {
 	if c == "" {
 		klog.Warning("The %s environment variable is empty, no configuration has been loaded", ConfigurationEnvVar)
 	} else {
-		var configuration config.Config
 		klog.Infof("Loading configuration:\n%s", c) //dev
-		err := yaml.Unmarshal([]byte(c), &configuration)
+		configuration, err := config.ParseConfig(c)
 		if err != nil {
-			klog.Fatalf("Failed to parse configuration: %v", err)
+			klog.Fatal(err)
 		}
-		if configuration.Version != config.Version {
-			klog.Fatalf("Unsupported configuration version. Only %s is supported by this plugin version.", config.Version)
-		}
-		if len(configuration.Mappings) == 0 {
-			klog.Warning("No mappings defined in the configuration")
+
+		// create a single name cache
+		nc, err := namecache.NewNameCache(registerCtx.Context, registerCtx.VirtualManager, configuration)
+		if err != nil {
+			klog.Fatalf("Error seting up namecache for a mapping", err)
 		}
 
 		// TODO: efficiently sync all mapped CRDs from the host to vcluster or perhaps this should be a separate controller that will watch CRDs and sync changes
@@ -49,11 +47,6 @@ func main() {
 					if err != nil {
 						klog.Fatalf("Error syncronizing CRD %s(%s) from the host cluster into vcluster: %v", m.FromVirtualCluster.Kind, m.FromVirtualCluster.ApiVersion, err)
 					}
-				}
-
-				nc, err := namecache.NewNameCache(registerCtx.Context, registerCtx.VirtualManager, &m)
-				if err != nil {
-					klog.Fatalf("Error seting up namecache for a mapping", err)
 				}
 
 				s, err := syncer.CreateFromVirtualSyncer(registerCtx, m.FromVirtualCluster, nc)
