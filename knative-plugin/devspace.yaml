@@ -3,9 +3,7 @@ vars:
   - name: PLUGIN_IMAGE
     value: ishankhare07/vcluster-knative-serving-plugin
   - name: K3S_IMAGE
-    value: rancher/k3s:v1.23.5-k3s1
-  - name: SERVICE_CIDR
-    command: vcluster get service-cidr
+    value: rancher/k3s:v1.25.0-k3s1
 images:
   vcluster:
     image: ${PLUGIN_IMAGE}
@@ -17,7 +15,7 @@ deployments:
       chart:
         name: vcluster
         repo: https://charts.loft.sh
-        version: 0.10.0
+        version: 0.12.0
       valuesFiles:
         - plugin.yaml
       values:
@@ -26,7 +24,6 @@ deployments:
             image: ${PLUGIN_IMAGE}
         service:
           type: NodePort
-        serviceCIDR: ${SERVICE_CIDR}
         serviceAccount:
           create: false
           name: default

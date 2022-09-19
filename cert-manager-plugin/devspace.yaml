@@ -3,9 +3,7 @@ vars:
   - name: PLUGIN_IMAGE
     value: ghcr.io/loft-sh/vcluster-plugins/cert-manager-plugin
   - name: K3S_IMAGE
-    value: rancher/k3s:v1.23.5-k3s1
-  - name: SERVICE_CIDR
-    command: vcluster get service-cidr
+    value: rancher/k3s:v1.25.0-k3s1
 images:
   vcluster:
     image: ${PLUGIN_IMAGE}
@@ -17,14 +15,15 @@ deployments:
       chart:
         name: vcluster
         repo: https://charts.loft.sh
-        version: 0.10.0
+        version: 0.12.0
       valuesFiles:
         - plugin.yaml
       values:
         plugin:
           cert-manager-plugin:
             image: ${PLUGIN_IMAGE}
-        serviceCIDR: ${SERVICE_CIDR}
+        service:
+          type: NodePort
         serviceAccount:
           create: false
           name: default
