@@ -2,7 +2,6 @@ package main
 
 import (
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	"github.com/loft-sh/vcluster-cert-manager-plugin/pkg/constants"
 	"github.com/loft-sh/vcluster-cert-manager-plugin/pkg/hooks/ingresses"
 	"github.com/loft-sh/vcluster-cert-manager-plugin/pkg/syncers/certificates"
 	"github.com/loft-sh/vcluster-cert-manager-plugin/pkg/syncers/issuers"
@@ -18,7 +17,7 @@ func init() {
 
 func main() {
 	// init plugin
-	registerCtx, err := plugin.Init(constants.PluginName)
+	registerCtx, err := plugin.Init()
 	if err != nil {
 		klog.Fatalf("Error initializing plugin: %v", err)
 	}
