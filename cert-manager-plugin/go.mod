@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/cert-manager/cert-manager v1.8.0
-	github.com/loft-sh/vcluster-sdk v0.3.2
+	github.com/loft-sh/vcluster-sdk v0.4.0
 	k8s.io/api v0.24.0
 	k8s.io/apimachinery v0.24.0
 	k8s.io/klog v1.0.0
