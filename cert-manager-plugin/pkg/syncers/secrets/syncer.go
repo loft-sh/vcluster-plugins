@@ -40,9 +40,9 @@ func (s *secretSyncer) getCertVirtualName(certPhysicalName string) (string, erro
 
 	if err != nil {
 		return "", err
-	} else {
-		return virtualCert.Name, nil
 	}
+
+	return virtualCert.Name, nil
 }
 
 func (s *secretSyncer) getIssuerVirtualName(issuerPhysicalName string) (string, error) {
@@ -51,9 +51,9 @@ func (s *secretSyncer) getIssuerVirtualName(issuerPhysicalName string) (string, 
 
 	if err != nil {
 		return "", err
-	} else {
-		return virtualIssuer.Name, nil
 	}
+
+	return virtualIssuer.Name, nil
 }
 
 func (s *secretSyncer) SyncDown(ctx *context.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -158,9 +158,9 @@ func (s *secretSyncer) SyncUp(ctx *context.SyncContext, pObj client.Object) (ctr
 
 			if err != nil {
 				return ctrl.Result{}, err
-			} else {
-				vSecret.Annotations["cert-manager.io/certificate-name"] = certVirtualName
 			}
+
+			vSecret.Annotations["cert-manager.io/certificate-name"] = certVirtualName
 		}
 
 		if vSecret.Annotations["cert-manager.io/issuer-name"] != "" {
@@ -169,9 +169,9 @@ func (s *secretSyncer) SyncUp(ctx *context.SyncContext, pObj client.Object) (ctr
 
 			if err != nil {
 				return ctrl.Result{}, err
-			} else {
-				vSecret.Annotations["cert-manager.io/issuer-name"] = issuerVirtualName
 			}
+
+			vSecret.Annotations["cert-manager.io/issuer-name"] = issuerVirtualName
 		}
 
 		vSecret.Labels[translate.ControllerLabel] = constants.PluginName
