@@ -33,12 +33,17 @@ func VolumeMask(ctx context.Context, in *corev1.Volume) *corev1.Volume {
 	if in == nil {
 		return nil
 	}
+	cfg := config.FromContextOrDefaults(ctx)
 
 	out := new(corev1.Volume)
 
 	// Allowed fields
 	out.Name = in.Name
 	out.VolumeSource = in.VolumeSource
+
+	if cfg.Features.PodSpecVolumesEmptyDir != config.Disabled {
+		out.EmptyDir = in.EmptyDir
+	}
 
 	return out
 }
@@ -60,10 +65,6 @@ func VolumeSourceMask(ctx context.Context, in *corev1.VolumeSource) *corev1.Volu
 
 	if cfg.Features.PodSpecVolumesEmptyDir != config.Disabled {
 		out.EmptyDir = in.EmptyDir
-	}
-
-	if cfg.Features.PodSpecPersistentVolumeClaim != config.Disabled {
-		out.PersistentVolumeClaim = in.PersistentVolumeClaim
 	}
 
 	// Too many disallowed fields to list
@@ -191,9 +192,6 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	if cfg.Features.PodSpecAffinity != config.Disabled {
 		out.Affinity = in.Affinity
 	}
-	if cfg.Features.PodSpecTopologySpreadConstraints != config.Disabled {
-		out.TopologySpreadConstraints = in.TopologySpreadConstraints
-	}
 	if cfg.Features.PodSpecHostAliases != config.Disabled {
 		out.HostAliases = in.HostAliases
 	}
@@ -218,18 +216,13 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	if cfg.Features.PodSpecInitContainers != config.Disabled {
 		out.InitContainers = in.InitContainers
 	}
-	if cfg.Features.PodSpecDNSPolicy != config.Disabled {
-		out.DNSPolicy = in.DNSPolicy
-	}
-	if cfg.Features.PodSpecDNSConfig != config.Disabled {
-		out.DNSConfig = in.DNSConfig
-	}
 
 	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
 	out.RestartPolicy = ""
 	out.TerminationGracePeriodSeconds = nil
 	out.ActiveDeadlineSeconds = nil
+	out.DNSPolicy = ""
 	out.NodeName = ""
 	out.HostNetwork = false
 	out.HostPID = false
@@ -238,6 +231,7 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	out.Hostname = ""
 	out.Subdomain = ""
 	out.Priority = nil
+	out.DNSConfig = nil
 	out.ReadinessGates = nil
 
 	return out
@@ -315,7 +309,7 @@ func ProbeMask(in *corev1.Probe) *corev1.Probe {
 	out := new(corev1.Probe)
 
 	// Allowed fields
-	out.ProbeHandler = in.ProbeHandler
+	out.Handler = in.Handler
 	out.InitialDelaySeconds = in.InitialDelaySeconds
 	out.TimeoutSeconds = in.TimeoutSeconds
 	out.PeriodSeconds = in.PeriodSeconds
@@ -328,11 +322,11 @@ func ProbeMask(in *corev1.Probe) *corev1.Probe {
 // HandlerMask performs a _shallow_ copy of the Kubernetes Handler object to a new
 // Kubernetes Handler object bringing over only the fields allowed in the Knative API. This
 // does not validate the contents or the bounds of the provided fields.
-func HandlerMask(in *corev1.ProbeHandler) *corev1.ProbeHandler {
+func HandlerMask(in *corev1.Handler) *corev1.Handler {
 	if in == nil {
 		return nil
 	}
-	out := new(corev1.ProbeHandler)
+	out := new(corev1.Handler)
 
 	// Allowed fields
 	out.Exec = in.Exec
