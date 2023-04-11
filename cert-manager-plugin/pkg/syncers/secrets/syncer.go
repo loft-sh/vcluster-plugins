@@ -1,7 +1,11 @@
 package secrets
 
 import (
+	ctxt "context"
+
+	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/loft-sh/vcluster-cert-manager-plugin/pkg/constants"
+	"github.com/loft-sh/vcluster-sdk/clienthelper"
 	"github.com/loft-sh/vcluster-sdk/syncer"
 	"github.com/loft-sh/vcluster-sdk/syncer/context"
 	"github.com/loft-sh/vcluster-sdk/syncer/translator"
@@ -27,6 +31,29 @@ type secretSyncer struct {
 
 	virtualClient  client.Client
 	physicalClient client.Client
+}
+
+func (s *secretSyncer) getCertVirtualName(certPhysicalName string) (string, error) {
+
+	virtualCert := &certmanagerv1.Certificate{}
+	err := clienthelper.GetByIndex(ctxt.TODO(), s.virtualClient, virtualCert, translator.IndexByPhysicalName, certPhysicalName)
+
+	if err != nil {
+		return "", err
+	}
+
+	return virtualCert.Name, nil
+}
+
+func (s *secretSyncer) getIssuerVirtualName(issuerPhysicalName string) (string, error) {
+	virtualIssuer := &certmanagerv1.Issuer{}
+	err := clienthelper.GetByIndex(ctxt.TODO(), s.virtualClient, virtualIssuer, translator.IndexByPhysicalName, issuerPhysicalName)
+
+	if err != nil {
+		return "", err
+	}
+
+	return virtualIssuer.Name, nil
 }
 
 func (s *secretSyncer) SyncDown(ctx *context.SyncContext, vObj client.Object) (ctrl.Result, error) {
@@ -124,6 +151,29 @@ func (s *secretSyncer) SyncUp(ctx *context.SyncContext, pObj client.Object) (ctr
 			vSecret.Labels[k] = v
 		}
 		vSecret.Annotations[constants.BackwardSyncAnnotation] = "true"
+
+		if vSecret.Annotations["cert-manager.io/certificate-name"] != "" {
+			certPhysicalName := vSecret.Annotations["cert-manager.io/certificate-name"]
+			certVirtualName, err := s.getCertVirtualName(certPhysicalName)
+
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			vSecret.Annotations["cert-manager.io/certificate-name"] = certVirtualName
+		}
+
+		if vSecret.Annotations["cert-manager.io/issuer-name"] != "" {
+			issuerPhysicalName := vSecret.Annotations["cert-manager.io/issuer-name"]
+			issuerVirtualName, err := s.getIssuerVirtualName(issuerPhysicalName)
+
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			vSecret.Annotations["cert-manager.io/issuer-name"] = issuerVirtualName
+		}
+
 		vSecret.Labels[translate.ControllerLabel] = constants.PluginName
 		ctx.Log.Infof("create virtual secret %s/%s because physical secret exists", vSecret.Namespace, vSecret.Name)
 		return ctrl.Result{}, ctx.VirtualClient.Create(ctx.Context, vSecret)
