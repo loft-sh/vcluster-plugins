@@ -1,3 +1,7 @@
+# Deprecation Notice
+> [!IMPORTANT]  
+> This repository is no longer maintained. 
+
 # vcluster Plugins
 
 This is the official vcluster Plugins Repository. Read more in the [vcluster documentation](https://www.vcluster.com/docs/plugins/overview).
